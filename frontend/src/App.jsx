@@ -4,20 +4,33 @@ import ExpenseList from './components/ExpenseList';
 import Charts from './components/Charts';
 import Summary from './components/Summary';
 import { saveReceipts, loadReceipts } from './utils/storage';
+import { checkNegativeAmounts, checkDuplicate } from './utils/validation';
 
 const App = () => {
   // ローカルストレージから初期データを読み込む
   const [receipts, setReceipts] = useState(() => loadReceipts());
   const [selectedMonth, setSelectedMonth] = useState('');
   const [activeTab, setActiveTab] = useState('list');
+  // バリデーション警告メッセージ一覧
+  const [warnings, setWarnings] = useState([]);
 
   // レシートが変更されるたびにローカルストレージへ保存
   useEffect(() => {
     saveReceipts(receipts);
   }, [receipts]);
 
-  // 新しいレシートを追加（一意なIDを付与して先頭に追加）
+  // 新しいレシートを追加（バリデーション後に先頭へ追加）
   const addReceipt = (receiptData) => {
+    const newWarnings = [];
+
+    const negativeWarning = checkNegativeAmounts(receiptData);
+    if (negativeWarning) newWarnings.push(negativeWarning);
+
+    const duplicateWarning = checkDuplicate(receiptData, receipts);
+    if (duplicateWarning) newWarnings.push(duplicateWarning);
+
+    setWarnings(newWarnings);
+
     const receipt = {
       ...receiptData,
       id: `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -66,6 +79,21 @@ const App = () => {
       <main className="app-main">
         {/* レシートアップロード */}
         <ReceiptUploader onReceiptAdded={addReceipt} />
+
+        {/* バリデーション警告 */}
+        {warnings.length > 0 && (
+          <div className="warnings-box">
+            <div className="warnings-header">
+              <span>⚠️ 登録時の警告</span>
+              <button className="warnings-close" onClick={() => setWarnings([])}>✕</button>
+            </div>
+            <ul className="warnings-list">
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* 月フィルター */}
         {availableMonths.length > 0 && (
